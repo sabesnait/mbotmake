@@ -11,6 +11,7 @@ import traceback
 import base64
 from os import getenv
 
+
 def generateMetajson(temp, vardict):
     meta = """
 {{
@@ -26,17 +27,20 @@ def generateMetajson(temp, vardict):
         "extruder": "0"
     }},
     "duration_s": {4}, 
-    "total_commands": {5}
+    "total_commands": {5},
+    "material": "{6}"
 }}
     """
     meta = meta.format(vardict['tool0temp'], vardict['tool1temp'],
                        vardict['bedtemp'],
                        'true' if vardict['heatbed'] else 'false',
                        int(math.ceil(vardict['time'])),
-                       vardict['toolpathfilelength'])
+                       vardict['toolpathfilelength'],
+                       vardict['material'])
     with open('{}/meta.json'.format(temp), 'w') as metafile:
         metafile.write(meta)
-    return 
+    print(meta)
+    return
 
 
 def generateCommand(function, metadata, parameters, tags):
@@ -46,7 +50,7 @@ def generateCommand(function, metadata, parameters, tags):
             'parameters': parameters,
             'metadata': metadata,
             'tags': tags
-            }
+        }
         }
     ])
 
@@ -56,8 +60,8 @@ def generateThumbnails(filename, temp):
     file = open(filename, 'r')
     line = file.readline()
     if "PrusaSlicer" not in line:  # only tested on Prusa Slicer
-        return tnNames;
-    while True: 
+        return tnNames
+    while True:
         line = file.readline()
         if "thumbnail begin" in line:
             thumbnailMeta = line.split(' ')
@@ -69,13 +73,13 @@ def generateThumbnails(filename, temp):
                 thumbnail_data = thumbnail_data + line.strip("; \n")
                 line = file.readline()
             decoded_data = base64.b64decode(thumbnail_data)
-            thumbnailFileName = '{}/thumbnail_' + thumbnailSize  + '.png'
+            thumbnailFileName = '{}/thumbnail_' + thumbnailSize + '.png'
             tnNames.append(thumbnailFileName)
             with open(thumbnailFileName.format(temp), 'wb') as thumbnailFile:
                 thumbnailFile.write(decoded_data)
         if not line:
-            break;
-    file.close();
+            break
+    file.close()
     return tnNames
 
 
@@ -89,7 +93,8 @@ def computeTime(prev, current):
         # time = sqrt((x2-x1)^2 + (y2-y1)^2 + (z2-z1)^2)/feedrate
         distance = math.dist([current['x'], current['y'], current['z']],
                              [prev['x'], prev['y'], prev['z']])
-    return distance/current['feedrate']
+    return distance / current['feedrate']
+
 
 def createToolpath(filename, temp):
     corpus = open(filename).readlines()
@@ -127,7 +132,8 @@ def createToolpath(filename, temp):
             'bedtemp': 0,
             'heatbed': False,
             'time': 0.0,
-            'toolpathfilelength': 0
+            'toolpathfilelength': 0,
+            'material': 0
         }
     printeroffset = \
         {
@@ -151,16 +157,18 @@ def createToolpath(filename, temp):
     """
     for line in corpus:
         if line.find(';') > -1:
+            if line.find('; filament_type')> -1 :
+                printersettings['material'] = line[18:-1]
             line = line[:line.find(';')]
         line = [part for part in line.split(' ') if part != '']
         if len(line) == 0:  # Most likely a blank line
             print(''.join(['\b'] * len(
                 printline.format(linenum,
                                  progresslen,
-                                 linenum/progresslen * 100.0))), end='')
+                                 linenum / progresslen * 100.0))), end='')
             linenum += 1
             print(printline.format(
-                linenum, progresslen, linenum/progresslen * 100.0), end='')
+                linenum, progresslen, linenum / progresslen * 100.0), end='')
             continue
         if line[0] in ['G0', 'G1']:
             if len(line) == 2 and line[1][0] == 'F':
@@ -209,7 +217,7 @@ def createToolpath(filename, temp):
                                              [])
                 if printersettings['tool{}temp'.format(tempmetadata['index'])] == 0:
                     printersettings['tool{}temp'.format(tempmetadata['index'])] = tempmetadata['temperature']
-            else: # there is only one extruder
+            else:  # there is only one extruder
                 processed += generateCommand('set_toolhead_temperature',
                                              {},
                                              {'temperature': tempmetadata['temperature']},
@@ -242,15 +250,15 @@ def createToolpath(filename, temp):
             printersettings['bedtemp'] = int(line[1][1:])
             printersettings['heatbed'] = True
         print(''.join(['\b'] * len(
-                printline.format(linenum, progresslen, linenum/progresslen * 100.0))), end='')
+            printline.format(linenum, progresslen, linenum / progresslen * 100.0))), end='')
         linenum += 1
-        print(printline.format(linenum, progresslen, linenum/progresslen * 100.0), end='')
+        print(printline.format(linenum, progresslen, linenum / progresslen * 100.0), end='')
     print()  # flush all the crap
     print('writing toolpath')
     compiledtoolpath = json.dumps(processed, sort_keys=False, indent=4)
     with open('{}/print.jsontoolpath'.format(temp), 'w') as toolpathfile:
         toolpathfile.write(compiledtoolpath)
-    printersettings['toolpathfilelength'] = len(re.findall('\n',compiledtoolpath))
+    printersettings['toolpathfilelength'] = len(re.findall('\n', compiledtoolpath))
     return printersettings
 
 
@@ -265,14 +273,14 @@ def packageMBotFile(filename, temp, tnNames):
 
 def main(argv):
     try:
-        prusaScript = False         
+        prusaScript = False
         for gcode in argv[1:]:
             temp = tempfile.mkdtemp()
-            if "-prusa" in gcode:       # use "-prusa" as argument in PrusaSlicer Post-Processing-Script
+            if "-prusa" in gcode:  # use "-prusa" as argument in PrusaSlicer Post-Processing-Script
                 prusaScript = True
                 continue
             if prusaScript:
-                output  = str(getenv('SLIC3R_PP_OUTPUT_NAME')).replace('.gcode', '.makerbot')
+                output = str(getenv('SLIC3R_PP_OUTPUT_NAME')).replace('.gcode', '.makerbot')
             else:
                 output = gcode.replace('.gcode', '.makerbot')
             print('Generating toolpath for', output)
@@ -293,7 +301,7 @@ def main(argv):
         print('Also, add the contents of {} to a zip file and add it to the issue, if there is any.'.format(temp))
         traceback.print_exc()
         input()
-        
+
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
