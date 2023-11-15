@@ -28,7 +28,9 @@ def generateMetajson(temp, vardict):
     }},
     "duration_s": {4}, 
     "total_commands": {5},
-    "material": "{6}"
+    "material": "{6}",
+    "layerHeight": {7},
+    "infill": {8}
 }}
     """
     meta = meta.format(vardict['tool0temp'], vardict['tool1temp'],
@@ -36,9 +38,12 @@ def generateMetajson(temp, vardict):
                        'true' if vardict['heatbed'] else 'false',
                        int(math.ceil(vardict['time'])),
                        vardict['toolpathfilelength'],
-                       vardict['material'])
+                       vardict['material'],
+                       vardict['layerHeight'],
+                       vardict['infill'])
     with open('{}/meta.json'.format(temp), 'w') as metafile:
         metafile.write(meta)
+    #print(meta) # just for testing
     return
 
 
@@ -132,7 +137,9 @@ def createToolpath(filename, temp):
             'heatbed': False,
             'time': 0.0,
             'toolpathfilelength': 0,
-            'material': 0
+            'material': 0,
+            'layer_Height': 0.0,
+            'infill': 0.00
         }
     printeroffset = \
         {
@@ -158,6 +165,10 @@ def createToolpath(filename, temp):
         if line.find(';') > -1:
             if line.find('; filament_type')> -1 :
                 printersettings['material'] = line[18:-1]
+            if line.find('; layer_height')> -1 :
+                printersettings['layerHeight'] = line[17:-1]
+            if line.find('; fill_density')> -1 :
+                printersettings['infill'] = float(line[17:-2])/100
             line = line[:line.find(';')]
         line = [part for part in line.split(' ') if part != '']
         if len(line) == 0:  # Most likely a blank line
