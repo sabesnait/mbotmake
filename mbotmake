@@ -39,7 +39,6 @@ def generateMetajson(temp, vardict):
                        vardict['material'])
     with open('{}/meta.json'.format(temp), 'w') as metafile:
         metafile.write(meta)
-    print(meta)
     return
 
 
