@@ -15,11 +15,10 @@ from os import getenv
 def generateMetajson(temp, vardict):
     meta = """
 {{
-    "bot_type": "replicator_5",
-    "duration_s": {9},
-    "extruder_temperature": {0},
-    "material": "{5}",
+    "toolhead_0_temperature": {0},
+    "toolhead_1_temperature": {1},
     "printer_settings": {{
+        "platform_temperature": {2},
         "extruder_temperatures": [
             {0},
             {1}
@@ -34,22 +33,21 @@ def generateMetajson(temp, vardict):
         "shells": {7},
         "support": {8}
     }},
-    "toolhead_0_temperature": {0}, 
+    "duration_s": {9}, 
     "total_commands": {10}
 }}
     """
-    # "toolhead_1_temperature": {1}, "platform_temperature": {2},
-    meta = meta.format(vardict['tool0temp'],                                  # {0}
-                       vardict['tool1temp'],                                        # {1}
-                       vardict['bedtemp'],                                          # {2}
-                       vardict['infill'],                                           # {3}
-                       vardict['layer_height'],                                     # {4}
-                       vardict['material'],                                         # {5}
-                       'true' if int(vardict['raft_layers'])>0 else 'false',        # {6}
-                       vardict['shells'],                                           # {7}
-                       'true' if vardict['support'] == '1' else 'false',            # {8}
-                       int(math.ceil(vardict['time'])),                             # {9}
-                       vardict['toolpathfilelength'])                               # {10}
+    meta = meta.format(vardict['tool0temp'],                              # {0}
+                       vardict['tool1temp'],                                    # {1}
+                       vardict['bedtemp'],                                      # {2}
+                       vardict['infill'],                                       # {3}
+                       vardict['layer_height'],                                 # {4}
+                       vardict['material'],                                     # {5}
+                       'true' if int(vardict['raft_layers']) > 0 else 'false',  # {6}
+                       vardict['shells'],                                       # {7}
+                       'true' if vardict['support'] == '1' else 'false',        # {8}
+                       int(math.ceil(vardict['time'])),                         # {9}
+                       vardict['toolpathfilelength'])                           # {10}
     with open('{}/meta.json'.format(temp), 'w') as metafile:
         metafile.write(meta)
     print(meta)  # just for testing
@@ -107,6 +105,17 @@ def computeTime(prev, current):
         distance = math.dist([current['x'], current['y'], current['z']],
                              [prev['x'], prev['y'], prev['z']])
     return distance / current['feedrate']
+
+
+def extractValue(line, key, offsetStart, offsetEnd, convertfunc):
+    if line.find(key) != -1:
+        value = line[offsetStart:offsetEnd]
+        if str.isnumeric(value) is True and type(convertfunc) is int:
+            value = convertfunc*int(value)
+        elif str.isnumeric(value) is True and type(convertfunc) is float:
+            value = convertfunc*float(value)
+        return value
+    return None
 
 
 def createToolpath(filename, temp):
@@ -172,23 +181,23 @@ def createToolpath(filename, temp):
     G90 toggles absolute positioning
     G91 toggles relative positioning
     """
+
+    settings_keys = {
+        '; filament_type': ('material', 18, -1, 1),
+        '; layer_height': ('layer_height', 17, -1, 1),
+        '; fill_density': ('infill', 17, -2, 1/100),
+        '; raft_layers': ('raft_layers', 16, -1, 1),
+        '; perimeters =': ('shells', 15, -1, 1),
+        '; support_material =': ('support', 21, -1, 1)
+    }
+
     for line in corpus:
-        if line.find(';') > -1:                                     # is G-Code Comment-Line
-            if line.find('; filament_type')> -1 :
-                printersettings['material'] = line[18:-1]
-            elif line.find('; layer_height')> -1 :
-                printersettings['layer_height'] = line[17:-1]
-            elif line.find('; fill_density')> -1 :
-                printersettings['infill'] = float(line[17:-2])/100
-            elif line.find('; raft_layers')> -1 :
-                printersettings['raft_layers'] = line[16:]
-            elif line.find('; perimeters')> -1 :
-                printersettings['shells'] = line[15:-1]
-            elif line[0:20] == "; support_material =":
-                printersettings['support'] = line[21:-1]
-#            elif line.find('; ')> -1 :
-#                printersettings['num_z_layers'] = line[]
-            line = line[:line.find(';')]
+        if ';' in line:
+            for key, (setting, offsetStart, offsetEnd, convert_func) in settings_keys.items():
+                value = extractValue(line, key, offsetStart, offsetEnd, convert_func)
+                if value is not None:
+                    printersettings[setting] = value
+            line = line.split(';')[0]
         line = [part for part in line.split(' ') if part != '']
         if len(line) == 0:  # Most likely a blank line
             print(''.join(['\b'] * len(
