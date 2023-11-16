@@ -15,10 +15,11 @@ from os import getenv
 def generateMetajson(temp, vardict):
     meta = """
 {{
-    "toolhead_0_temperature": {0},
-    "toolhead_1_temperature": {1},
+    "bot_type": "replicator_5",
+    "duration_s": {9},
+    "extruder_temperature": {0},
+    "material": "{5}",
     "printer_settings": {{
-        "platform_temperature": {2},
         "extruder_temperatures": [
             {0},
             {1}
@@ -33,23 +34,25 @@ def generateMetajson(temp, vardict):
         "shells": {7},
         "support": {8}
     }},
-    "duration_s": {9}, 
+    "toolhead_0_temperature": {0}, 
     "total_commands": {10}
 }}
     """
-    meta = meta.format(vardict['tool0temp'], vardict['tool1temp'],      # {0}{1}
-                       vardict['bedtemp'],                              # {2}
-                       vardict['infill'],                               # {3} 
-                       vardict['layer_height'],                         # {4}
-                       vardict['material'],                             # {5}
-                       'true' if int(vardict['raft_layers'])>0 else 'false', # {6}
-                       vardict['shells'],                               # {7}
-                       'true' if vardict['support'] == '1' else 'false',       # {8}
-                       int(math.ceil(vardict['time'])),                 # {9}
-                       vardict['toolpathfilelength'])                   # {10}
+    # "toolhead_1_temperature": {1}, "platform_temperature": {2},
+    meta = meta.format(vardict['tool0temp'],                                  # {0}
+                       vardict['tool1temp'],                                        # {1}
+                       vardict['bedtemp'],                                          # {2}
+                       vardict['infill'],                                           # {3}
+                       vardict['layer_height'],                                     # {4}
+                       vardict['material'],                                         # {5}
+                       'true' if int(vardict['raft_layers'])>0 else 'false',        # {6}
+                       vardict['shells'],                                           # {7}
+                       'true' if vardict['support'] == '1' else 'false',            # {8}
+                       int(math.ceil(vardict['time'])),                             # {9}
+                       vardict['toolpathfilelength'])                               # {10}
     with open('{}/meta.json'.format(temp), 'w') as metafile:
         metafile.write(meta)
-    print(meta) # just for testing
+    print(meta)  # just for testing
     return
 
 
@@ -173,17 +176,18 @@ def createToolpath(filename, temp):
         if line.find(';') > -1:                                     # is G-Code Comment-Line
             if line.find('; filament_type')> -1 :
                 printersettings['material'] = line[18:-1]
-            if line.find('; layer_height')> -1 :
+            elif line.find('; layer_height')> -1 :
                 printersettings['layer_height'] = line[17:-1]
-            if line.find('; fill_density')> -1 :
+            elif line.find('; fill_density')> -1 :
                 printersettings['infill'] = float(line[17:-2])/100
-            if line.find('; raft_layers')> -1 :
+            elif line.find('; raft_layers')> -1 :
                 printersettings['raft_layers'] = line[16:]
-            if line.find('; perimeters')> -1 :
+            elif line.find('; perimeters')> -1 :
                 printersettings['shells'] = line[15:-1]
-            if line[0:20] == "; support_material =":
+            elif line[0:20] == "; support_material =":
                 printersettings['support'] = line[21:-1]
-                
+#            elif line.find('; ')> -1 :
+#                printersettings['num_z_layers'] = line[]
             line = line[:line.find(';')]
         line = [part for part in line.split(' ') if part != '']
         if len(line) == 0:  # Most likely a blank line
