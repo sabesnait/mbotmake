@@ -34,10 +34,12 @@ def generateMetajson(temp, vardict):
         "support": {8}
     }},
     "duration_s": {9}, 
-    "total_commands": {10}
+    "total_commands": {10},
+    "extrusion_mass_a_grams": {11},
+    "extrusion_mass_g": {11}
 }}
     """
-    meta = meta.format(vardict['tool0temp'],                              # {0}
+    meta = meta.format(vardict['tool0temp'],                                    # {0}
                        vardict['tool1temp'],                                    # {1}
                        vardict['bedtemp'],                                      # {2}
                        vardict['infill'],                                       # {3}
@@ -47,7 +49,8 @@ def generateMetajson(temp, vardict):
                        vardict['shells'],                                       # {7}
                        'true' if vardict['support'] == '1' else 'false',        # {8}
                        int(math.ceil(vardict['time'])),                         # {9}
-                       vardict['toolpathfilelength'])                           # {10}
+                       vardict['toolpathfilelength'],                           # {10}
+                       vardict['extrusion_mass_g'])                             # {11}
     with open('{}/meta.json'.format(temp), 'w') as metafile:
         metafile.write(meta)
     print(meta)  # just for testing
@@ -188,7 +191,8 @@ def createToolpath(filename, temp):
         '; fill_density': ('infill', 17, -2, 1/100),
         '; raft_layers': ('raft_layers', 16, -1, 1),
         '; perimeters =': ('shells', 15, -1, 1),
-        '; support_material =': ('support', 21, -1, 1)
+        '; support_material =': ('support', 21, -1, 1),
+        '; filament used [g] =':('extrusion_mass_g',22, -1, 1)
     }
 
     for line in corpus:
