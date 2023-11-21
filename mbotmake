@@ -198,13 +198,13 @@ def createToolpath(filename, temp):
         '; raft_layers': ('raft_layers', 16, -1, 1),
         '; perimeters =': ('shells', 15, -1, 1),
         '; support_material =': ('support', 21, -1, 1),
-        '; filament used [g] =': ('extrusion_mass_g',22, -1, 1),
+        '; filament used [g] =': ('extrusion_mass_g', 22, -1, 1),
         '; filament used [mm] =': ('extrusion_distance_mm', 23, -1, 1),
-        '; estimated printing time (normal mode) =': ('time', 42, -6, 69),   # liest minuten aus gccode. 60*1.25=69 als Faktor
+        '; estimated printing time (normal mode) =': ('time', 42, -6, 69),   # extract minutes 60*1.25=69 as Factor
     }
 
     for line in corpus:
-        if ';' in line: # comment line
+        if ';' in line:
             for key, (setting, offsetStart, offsetEnd, convert_func) in settings_keys.items():
                 value = extractValue(line, key, offsetStart, offsetEnd, convert_func)
                 if value is not None:
