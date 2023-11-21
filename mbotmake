@@ -10,7 +10,9 @@ import re
 import traceback
 import base64
 from os import getenv
+import time
 
+start_time = time.time()
 
 def generateMetajson(temp, vardict):
     meta = """
@@ -177,8 +179,6 @@ def createToolpath(filename, temp):
             'y': 0.0,
             'z': 0.0
         }
-    print('lines processed:')
-    print(printline.format(0, progresslen, 0.0), end='')
     """
     Quick reference:
     G0/G1 is move
@@ -203,24 +203,29 @@ def createToolpath(filename, temp):
         '; estimated printing time (normal mode) =': ('time', 42, -6, 69),   # extract minutes 60*1.25=69 as Factor
     }
 
+    print('lines processed:')
+    print(printline.format(0, progresslen, 0.0), end='')
+    
     for line in corpus:
-        if ';' in line:
+        # Print Progress Bar
+        print(''.join(['\b'] * len(printline.format(linenum, progresslen, linenum / progresslen * 100.0))), end='')
+        linenum += 1
+        print(printline.format(linenum, progresslen, linenum / progresslen * 100.0), end='')
+
+        if line.startswith(';'):    # G-Code-Coment
             for key, (setting, offsetStart, offsetEnd, convert_func) in settings_keys.items():
                 value = extractValue(line, key, offsetStart, offsetEnd, convert_func)
                 if value is not None:
                     printersettings[setting] = value
                     break
-        line = [part for part in line.split(' ') if part != '']
-        if len(line) == 0:  # Most likely a blank line
-            print(''.join(['\b'] * len(
-                printline.format(linenum,
-                                 progresslen,
-                                 linenum / progresslen * 100.0))), end='')
-            linenum += 1
-            print(printline.format(
-                linenum, progresslen, linenum / progresslen * 100.0), end='')
             continue
-        if line[0] in ['G0', 'G1']:
+        
+        line = [part for part in line.split(' ') if part != '']
+        
+        if len(line) == 0:  # Blank G-Code-Line
+            continue
+        
+        if line[0] in ['G0', 'G1']: # Generate Commands
             if len(line) == 2 and line[1][0] == 'F':
                 axis['feedrate'] = float(line[1][1:]) / 60.0
             else:  # Normal move
@@ -299,10 +304,6 @@ def createToolpath(filename, temp):
         elif line[0] == 'M140':
             printersettings['bedtemp'] = int(line[1][1:])
             printersettings['heatbed'] = True
-        print(''.join(['\b'] * len(
-            printline.format(linenum, progresslen, linenum / progresslen * 100.0))), end='')
-        linenum += 1
-        print(printline.format(linenum, progresslen, linenum / progresslen * 100.0), end='')
     print()  # flush all the crap
     print('writing toolpath')
     compiledtoolpath = json.dumps(processed, sort_keys=False, indent=4)
@@ -342,7 +343,7 @@ def main(argv):
             print(len(tnNames), 'Thumbnail(s) generated')
             print('Packaging', output)
             packageMBotFile(output, temp, tnNames)
-            print(output, 'done!')
+            print(output, 'done in %s seconds!' % round(time.time() - start_time, 2))
     except Exception as e:
         print()
         print('An error occurred.')
