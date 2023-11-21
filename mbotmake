@@ -15,8 +15,11 @@ from os import getenv
 def generateMetajson(temp, vardict):
     meta = """
 {{
-    "toolhead_0_temperature": {0},
-    "toolhead_1_temperature": {1},
+    "duration_s": {9},
+    "extrusion_distance_a_mm": {12},
+    "extrusion_distance_mm": {12},
+    "extrusion_mass_a_grams": {11},
+    "extrusion_mass_g": {11},
     "printer_settings": {{
         "platform_temperature": {2},
         "extruder_temperatures": [
@@ -33,13 +36,12 @@ def generateMetajson(temp, vardict):
         "shells": {7},
         "support": {8}
     }},
-    "duration_s": {9}, 
-    "total_commands": {10},
-    "extrusion_mass_a_grams": {11},
-    "extrusion_mass_g": {11}
+    "toolhead_0_temperature": {0},
+    "toolhead_1_temperature": {1},
+    "total_commands": {10}
 }}
     """
-    meta = meta.format(vardict['tool0temp'],                                    # {0}
+    meta = meta.format(vardict['tool0temp'],                              # {0}
                        vardict['tool1temp'],                                    # {1}
                        vardict['bedtemp'],                                      # {2}
                        vardict['infill'],                                       # {3}
@@ -50,7 +52,9 @@ def generateMetajson(temp, vardict):
                        'true' if vardict['support'] == '1' else 'false',        # {8}
                        int(math.ceil(vardict['time'])),                         # {9}
                        vardict['toolpathfilelength'],                           # {10}
-                       vardict['extrusion_mass_g'])                             # {11}
+                       vardict['extrusion_mass_g'],                             # {11}
+                       vardict['extrusion_distance_mm']                         # {12}
+                       )
     with open('{}/meta.json'.format(temp), 'w') as metafile:
         metafile.write(meta)
     print(meta)  # just for testing
@@ -162,7 +166,9 @@ def createToolpath(filename, temp):
             'infill': 0.00,
             'shells': 0,
             'raft_layers': 0, 
-            'support': 0
+            'support': 0,
+            'extrusion_mass_g': 0.0,
+            'extrusion_distance_mm': 0.0
         }
     printeroffset = \
         {
@@ -192,7 +198,8 @@ def createToolpath(filename, temp):
         '; raft_layers': ('raft_layers', 16, -1, 1),
         '; perimeters =': ('shells', 15, -1, 1),
         '; support_material =': ('support', 21, -1, 1),
-        '; filament used [g] =':('extrusion_mass_g',22, -1, 1)
+        '; filament used [g] =': ('extrusion_mass_g',22, -1, 1),
+        '; filament used [mm] =': ('extrusion_distance_mm', 23, -1, 1)
     }
 
     for line in corpus:
@@ -201,6 +208,7 @@ def createToolpath(filename, temp):
                 value = extractValue(line, key, offsetStart, offsetEnd, convert_func)
                 if value is not None:
                     printersettings[setting] = value
+                    continue
             line = line.split(';')[0]
         line = [part for part in line.split(' ') if part != '']
         if len(line) == 0:  # Most likely a blank line
