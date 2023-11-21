@@ -41,7 +41,7 @@ def generateMetajson(temp, vardict):
     "total_commands": {10}
 }}
     """
-    meta = meta.format(vardict['tool0temp'],                              # {0}
+    meta = meta.format(vardict['tool0temp'],                                    # {0}
                        vardict['tool1temp'],                                    # {1}
                        vardict['bedtemp'],                                      # {2}
                        vardict['infill'],                                       # {3}
@@ -199,17 +199,18 @@ def createToolpath(filename, temp):
         '; perimeters =': ('shells', 15, -1, 1),
         '; support_material =': ('support', 21, -1, 1),
         '; filament used [g] =': ('extrusion_mass_g',22, -1, 1),
-        '; filament used [mm] =': ('extrusion_distance_mm', 23, -1, 1)
+        '; filament used [mm] =': ('extrusion_distance_mm', 23, -1, 1),
+        '; estimated printing time (normal mode) =': ('time', 42, -6, 69)   # liest minuten aus gccode. 60*1.25=69 als Faktor
     }
 
     for line in corpus:
-        if ';' in line:
+        if ';' in line: # comment line
             for key, (setting, offsetStart, offsetEnd, convert_func) in settings_keys.items():
                 value = extractValue(line, key, offsetStart, offsetEnd, convert_func)
                 if value is not None:
                     printersettings[setting] = value
-                    continue
-            line = line.split(';')[0]
+                    break
+            continue
         line = [part for part in line.split(' ') if part != '']
         if len(line) == 0:  # Most likely a blank line
             print(''.join(['\b'] * len(
@@ -243,7 +244,7 @@ def createToolpath(filename, temp):
                                               'z': False},
                                              axis,
                                              [])
-                printersettings['time'] += computeTime(prev, axis)
+                # printersettings['time'] += computeTime(prev, axis)
         elif line[0] == 'G92':
             for ax in line[1:]:
                 if ax[0] == 'E':
