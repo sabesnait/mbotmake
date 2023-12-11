@@ -226,7 +226,7 @@ def createToolpath(filename, temp):
         linenum += 1
         print(printline.format(linenum, progresslen, linenum / progresslen * 100.0), end='')
 
-        if line.startswith(';'):    # G-Code-Coment
+        if line.startswith(';'):    # G-Code-Comment
             if line.startswith('; estimated printing time (normal mode) ='):
                 printersettings['time'] = extract_time_from_string(line)
                 continue
